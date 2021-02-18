@@ -1,13 +1,14 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using Photon.Pun;
+using Photon;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
 
 namespace ChessGame.Pieces
 {
-    public abstract class Piece : MonoBehaviour
+    public abstract class Piece : MonoBehaviourPunCallbacks , IPunObservable
     {
         private Side side;
         protected Cell originalCell;
@@ -20,6 +21,8 @@ namespace ChessGame.Pieces
         protected Vector3Int movement;
         protected List<Cell> highlightedCells;
         protected Board board;
+
+   
 
         public Cell CurrentCell {get{return currentCell;} set{currentCell = value;}}
         public Cell OriginalCell {get{return originalCell;}}
@@ -59,7 +62,7 @@ namespace ChessGame.Pieces
             if (targetY < 0 || targetY > 7)
                 return CellState.OUT_OF_BOUNDS;
 
-            Debug.Log("Determine " + board);
+           
 
             Cell targetCell = this.board.BoardCells[targetX, targetY];
 
@@ -150,6 +153,7 @@ namespace ChessGame.Pieces
             CreateCellPath(1, -1, movement.z);
         }
 
+    [PunRPC]
     protected virtual void Move()
         {
             
@@ -172,12 +176,15 @@ namespace ChessGame.Pieces
     
         public void OnMouseDown()
         {
-            CheckPathing();
-            ShowCells();
+            
+                CheckPathing();
+                ShowCells();
+           
         }
 
         public void OnMouseDrag()
         {
+            
             Vector3 curScreenPoint = new Vector3(Input.mousePosition.x, Input.mousePosition.y, 8);
             Vector3 curPosition = Camera.main.ScreenToWorldPoint(curScreenPoint) + offset;
             transform.position = curPosition;
@@ -195,10 +202,12 @@ namespace ChessGame.Pieces
                 // If the mouse is not within any highlighted cell, we don't have a valid move.
                 targetCell = null;
             }
+            
         }
 
         public void OnMouseUp()
         {
+            
             ClearCells();
 
             // Return to original position
@@ -209,9 +218,32 @@ namespace ChessGame.Pieces
             }
 
             // Else move to new cell
-            Move();
-         
+            photonView.RPC("Move", RpcTarget.All);
+              
+            //Move();
+
+
+            board.ChangeTurn(this.side);
+            
         }
+
+        public void OnPhotonSerializeView(PhotonStream stream, PhotonMessageInfo info)
+            {
+                if (stream.IsWriting)
+                {
+                    Debug.Log(":write" + transform.position);
+                    stream.SendNext(transform.position);
+                    stream.SendNext(gameObject.name);
+                   // stream.SendNext(transform.rotation);
+                }
+                else
+                {
+                    Debug.Log(":read" + transform.position);
+                    transform.position = (Vector3)stream.ReceiveNext();
+                    gameObject.name = (string)stream.ReceiveNext();
+                 
+                }
+            }
          
     }
 }

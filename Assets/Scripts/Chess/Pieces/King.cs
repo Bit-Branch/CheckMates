@@ -1,6 +1,8 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using Photon.Pun;
+using Photon;
 
 namespace ChessGame.Pieces{
     public class King : Piece
@@ -16,7 +18,7 @@ namespace ChessGame.Pieces{
 
         public override void Kill()
         {
-            board.KillTheKing(this,this.Side);
+            board.KillTheKing(this);
         }
 
         protected override void CheckPathing()
@@ -28,6 +30,7 @@ namespace ChessGame.Pieces{
             leftRook = GetRook(-1, 4);
         }
 
+        [PunRPC]
         protected override void Move()
         {
             // Base move

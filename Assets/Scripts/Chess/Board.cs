@@ -8,8 +8,9 @@ using Photon.Pun;
 
 namespace ChessGame{
 
-    public class Board : MonoBehaviour
+    public class Board : MonoBehaviour, IPunInstantiateMagicCallback
     {
+        private PhotonView photonView;
         public GameObject MainCamera;
 
         private static Board Instance = null;
@@ -38,34 +39,101 @@ namespace ChessGame{
             {"K", typeof(King)}
         };
 
+        [SerializeField]
         private List<Piece> blackPieces = new List<Piece>();
+
+        [SerializeField]
         private List<Piece> whitePieces = new List<Piece>();
 
         public Cell[,] BoardCells { get { return boardCells;}}
 
         private void Awake() {
             Instance = this;
-            piecesSprites = Resources.LoadAll<Sprite>("Pieces");    
+            piecesSprites = Resources.LoadAll<Sprite>("Pieces");   
+            photonView = GetComponent<PhotonView>(); 
         }
         
         void Start()
         {
             FillPiecesLists();
             CreateAndPlaceCells();
-            PlacePieces(1,0, whitePieces);
-            PlacePieces(6,7, blackPieces);
+            if (PhotonNetwork.IsMasterClient)
+        {
+            FirstInitializeWhitePeices();
+        }
+ 
+        if (!PhotonNetwork.IsMasterClient)
+        {
+            FirstInitializeBlackPeices();
+            ChangeViewForConnectedPlayer();
+        }
+           
+            // PlacePieces(1,0, whitePieces);
+            // PlacePieces(6,7, blackPieces);
+            // if(!PhotonNetwork.IsMasterClient)
+            // {
+            //     // photonView.RPC("FillPiecesLists", RpcTarget.All);
+            //     // photonView.RPC("CreateAndPlaceCells", RpcTarget.All);
+            //     // photonView.RPC("PlacePieces", RpcTarget.All, 1 , 0, whitePieces);
+            //     // photonView.RPC("PlacePieces", RpcTarget.All, 6 , 7, blackPieces);
 
-            if(!PhotonNetwork.IsMasterClient)
-            {
-                ChangeViewForConnectedPlayer();
+
+            //     // FillPiecesLists();
+            //     // CreateAndPlaceCells();
+            //     // PlacePieces(1,0, whitePieces);
+            //     // PlacePieces(6,7, blackPieces);
+            //     ChangeViewForConnectedPlayer();
+            // }
+            ChangeTurn(Side.WHITE);
+        }
+
+        private void OnEnable()
+    {
+        PhotonNetwork.AddCallbackTarget(this);
+    }
+ 
+    private void OnDisable()
+    {
+        PhotonNetwork.RemoveCallbackTarget(this);
+    }
+
+        private void FirstInitializeWhitePeices(){
+            Debug.Log("white");
+            PlacePieces(1,0, whitePieces);
+        }
+
+        private void FirstInitializeBlackPeices(){
+            Debug.Log("black");
+            PlacePieces(6,7, blackPieces);
+        }
+
+        public void OnPhotonInstantiate(PhotonMessageInfo info)
+        {
+        object[] instantiationData = info.photonView.InstantiationData;
+        Debug.Log(instantiationData); //Trying to see whats coming in instantiation data
+
+        }
+
+        
+        public void InitializeBoard(){
+            // FillPiecesLists();
+            // CreateAndPlaceCells();
+           // PlacePieces(1,0, whitePieces);
+            // PlacePieces(6,7, blackPieces);
+            // photonView.RPC("PlacePieces", RpcTarget.Others, 1 , 0, whitePieces);
+            // photonView.RPC("PlacePieces", RpcTarget.Others, 6 , 7, blackPieces);
+            if(PhotonNetwork.IsMasterClient){
+                
             }
         }
 
+        [PunRPC]
         internal void PromotePiece(Pawn pawn)
         {
 
             //my pieces delete pawn and add queen
             Piece promotedPiece = CreatePiece(typeof(Queen),pawn.Side);
+           
             
             pawn.CurrentCell.PlacePiece(promotedPiece);
             promotedPiece.CurrentCell = pawn.CurrentCell;
@@ -85,6 +153,7 @@ namespace ChessGame{
             }
         }
 
+       
         private void CreateAndPlaceCells(){
             for (int column = 0; column < 8; column++)
             {
@@ -96,6 +165,8 @@ namespace ChessGame{
                     newCellObject.transform.position = new Vector3(AlignCoordinate((float)column), AlignCoordinate((float)row), -1.0f);
                    
                     Cell createdCell = (Cell)newCellObject.AddComponent(typeof(Cell));
+
+
                     createdCell.CellPosition = new Vector2Int(column,row);
                     boardCells[column,row] = createdCell;
                     createdCell.gameObject.SetActive(false);
@@ -104,6 +175,7 @@ namespace ChessGame{
             }
         }
 
+        
         private void FillPiecesLists(){
             for(int i = 0; i < pieceOrder.Length; i++)
             {
@@ -120,6 +192,7 @@ namespace ChessGame{
             }
         }
 
+        
         private Sprite FindPieceSprite(string spriteName)
         {
             foreach(Sprite sprite in piecesSprites)
@@ -132,12 +205,20 @@ namespace ChessGame{
             return null;
         }
 
+        
+       
         private Piece CreatePiece(Type pieceType, Side side)
         {
-            GameObject newPieceObject = Instantiate(piecePrefab);
+            GameObject newPieceObject = PhotonNetwork.Instantiate(piecePrefab.name, new Vector3(0, 0, 0), Quaternion.identity, 0);
             newPieceObject.transform.parent = this.transform;
 
+           // newPieceObject.AddComponent<SpriteRenderer>();
+
             Piece createdPiece = (Piece)newPieceObject.AddComponent(pieceType);
+
+          //  newPieceObject.GetComponent<PhotonView>().ObservedComponents.Add(newPieceObject.GetComponent<Piece>());
+           
+
             Sprite pieceSprite = FindPieceSprite(side.ToString().ToLower() + pieceType.Name);
 
             newPieceObject.GetComponent<SpriteRenderer>().sprite = pieceSprite;
@@ -148,6 +229,8 @@ namespace ChessGame{
             return createdPiece;
         }
 
+        
+        [PunRPC]
         private void PlacePieces(int pawnRow, int royaltyRow, List<Piece> pieces)
         {
             for(int i =0; i < 8 ; i++)
@@ -161,6 +244,8 @@ namespace ChessGame{
                 
                 pieces[i].transform.position = new Vector3(AlignCoordinate((float)i), AlignCoordinate((float)pawnRow), -1.0f);
                 pieces[i+8].transform.position = new Vector3(AlignCoordinate((float)i), AlignCoordinate((float)royaltyRow), -1.0f);
+
+                
             }
         }
 
@@ -173,8 +258,26 @@ namespace ChessGame{
             return coordinate;
         }
 
-        public void KillTheKing(King king, Side side){
-            //TODO
+        
+        public void ChangeTurn(Side side){
+            photonView.RPC("DisablePieces", RpcTarget.All, side , false);
+            photonView.RPC("DisablePieces", RpcTarget.All, side == Side.WHITE ? Side.BLACK : Side.WHITE, true);
         }
+
+        [PunRPC]
+        private void DisablePieces(Side side, bool enabled = false){
+            foreach (Piece piece in side == Side.WHITE ? whitePieces : blackPieces)
+            {
+                piece.gameObject.GetComponent<BoxCollider2D>().enabled = enabled;
+            }
+        }
+
+        public void KillTheKing(King king){
+            //TODO 
+        }
+
+        
+
+         
     }
 }

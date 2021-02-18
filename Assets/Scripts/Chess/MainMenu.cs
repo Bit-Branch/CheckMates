@@ -7,6 +7,7 @@ using Photon;
 using Photon.Pun;
 using Photon.Realtime;
 using ChessGame;
+using Hashtable = ExitGames.Client.Photon.Hashtable;
 
 namespace ChessGame
 {
@@ -177,6 +178,11 @@ namespace ChessGame
             public override void OnJoinedRoom()
             {
                cachedRoomList.Clear();
+               if(PhotonNetwork.LocalPlayer.IsMasterClient){
+                   Hashtable hash = new Hashtable();
+                   hash.Add("Side", Side.WHITE);
+                   PhotonNetwork.LocalPlayer.SetCustomProperties(hash);
+               }
                 UnityEngine.SceneManagement.SceneManager.LoadScene("Game");
 
             }

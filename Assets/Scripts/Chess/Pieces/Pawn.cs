@@ -1,6 +1,8 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using Photon.Pun;
+using Photon;
 
 namespace ChessGame.Pieces{
     public class Pawn : Piece
@@ -8,9 +10,18 @@ namespace ChessGame.Pieces{
         public override void Setup(Side side)
         {
             base.Setup(side);
-            movement = new Vector3Int(0, 1, 1);
+            if (side == Side.WHITE)
+            {
+                movement = new Vector3Int(0, 1, 1);
+            }
+            else{
+                //change pawn direction if it's side is black
+                movement = new Vector3Int(0, -1, -1);
+            }
+            
         }
 
+        [PunRPC]
         protected override void Move()
         {
             base.Move();
@@ -55,7 +66,6 @@ namespace ChessGame.Pieces{
         protected override void CheckPathing()
         {
             // Target position
-            Debug.Log("Check pathing + !" + CurrentCell.CellPosition + " " );
 
             int currentX = CurrentCell.CellPosition.x;
             int currentY = CurrentCell.CellPosition.y;
